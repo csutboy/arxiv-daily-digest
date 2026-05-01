@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local env and credentials
+.env
+.env.*
+*.secret
+*.token
+auth.json
+credentials/
+
+# Local run state
+seen.json
+state/
+logs/
+*.log
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+

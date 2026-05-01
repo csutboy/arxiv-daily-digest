@@ -1,0 +1,4 @@
+interface:
+  display_name: "arXiv Daily Digest"
+  short_description: "每日筛选经济学和社会学 arXiv 论文并推送飞书"
+  default_prompt: "Use $arxiv-daily-digest to configure a Beijing-time Feishu push for economics and sociology arXiv papers."
