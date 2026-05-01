@@ -204,12 +204,12 @@ def main() -> int:
     fetch.add_argument("--categories", required=True, help="Comma-separated arXiv categories")
     fetch.add_argument("--days", type=float, default=2.0, help="Lookback window in days")
     fetch.add_argument("--max-results", type=int, default=100, help="Max arXiv API results")
-    fetch.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/seen.json")
+    fetch.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/arxiv-seen.json")
     fetch.add_argument("--include-seen", action="store_true", help="Do not filter local seen IDs")
     fetch.set_defaults(func=fetch_candidates)
 
     mark = subparsers.add_parser("mark-seen", help="Mark arXiv IDs as seen")
-    mark.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/seen.json")
+    mark.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/arxiv-seen.json")
     mark.add_argument("arxiv_ids", nargs="+")
     mark.set_defaults(func=mark_seen)
 

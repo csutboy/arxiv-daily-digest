@@ -9,13 +9,17 @@ Create or verify a table named `arXiv Daily Digest` with these fields. Field nam
 | 字段 | 类型 | 用途 |
 |---|---|---|
 | 日期 | datetime | digest date in Asia/Shanghai |
-| 来源 | select | `arXiv` or `Anthropic Research` |
+| 监控任务 | select | `arXiv Monitor` or `Institution Monitor` |
+| 来源 | select | `arXiv`, `Anthropic Research`, or `Benchmark Institution` |
 | Source ID | text | stable dedupe key, e.g. arXiv ID or `anthropic:slug` |
 | 分类 | text or multi-select | matched monitored categories |
 | Primary Category | text | arXiv primary category |
 | Cross-list Categories | text | all arXiv categories |
 | arXiv ID | text | stable arXiv ID without version suffix; blank for Anthropic items |
 | Anthropic Team | text | Economic Research / Societal Impacts / Anthropic Research |
+| Benchmark Institution | text | OpenAI / Google / Microsoft / Stanford / MIT / OII / PAI / etc. |
+| Anthropic-like Dimensions | text | matched benchmark dimensions |
+| 对标评分 | select | `High`, `Eligible`, `Review`, `Exclude` |
 | 标题 | text | paper title |
 | 作者 | text | author list |
 | 机构 | text | confirmed affiliations |
@@ -43,16 +47,19 @@ If creating a new Base, create the Base in `Asia/Shanghai`, then create the tabl
 
 ## Write Order
 
-1. Fetch candidate source IDs from arXiv and Anthropic Research.
+1. Fetch candidate source IDs from the active monitor.
+   - arXiv Monitor: arXiv only.
+   - Institution Monitor: Anthropic Research plus benchmark institutions.
 2. Check duplicate state:
    - Base: scan/query `Source ID` or `去重键`.
-   - Local state file: `~/.local/state/arxiv-daily-digest/seen.json`.
-3. For accepted papers, write Base rows with `是否已推送=false` and `推送状态=未推送`.
-4. Push the combined Markdown digest to Feishu chat.
+   - arXiv local state: `~/.local/state/arxiv-daily-digest/arxiv-seen.json`.
+   - Institution local state: `~/.local/state/arxiv-daily-digest/institution-seen.json`.
+3. For accepted papers/items, write Base rows with `监控任务`, `是否已推送=false`, and `推送状态=未推送`.
+4. Push the monitor-specific Markdown digest to Feishu chat.
 5. Update accepted rows to `是否已推送=true`, `推送状态=已推送`, and set `推送时间`.
 6. Mark the same source IDs as seen with the matching script:
    - arXiv: `scripts/arxiv_candidates.py mark-seen`
-   - Anthropic: `scripts/anthropic_candidates.py mark-seen`
+   - Institution: `scripts/institution_candidates.py mark-seen`
 
 If step 4 fails, keep rows as unpushed and do not mark seen.
 
@@ -96,7 +103,7 @@ Write a record:
 lark-cli base +record-upsert \
   --base-token app_xxx \
   --table-id tbl_xxx \
-  --json '{"来源":"arXiv","Source ID":"2601.12345","arXiv ID":"2601.12345","标题":"...","是否已推送":false,"推送状态":"未推送"}'
+  --json '{"监控任务":"arXiv Monitor","来源":"arXiv","Source ID":"2601.12345","arXiv ID":"2601.12345","标题":"...","是否已推送":false,"推送状态":"未推送"}'
 ```
 
 Update a record after push:
@@ -113,13 +120,12 @@ Before writing records, always inspect real field definitions with `+field-list`
 
 ## Digest Header
 
-Use this Markdown header:
+Use one of these Markdown headers:
 
 ```markdown
-## 经济学/社会学研究日报 - <YYYY-MM-DD>
+## arXiv 经济学/社会学日报 - <YYYY-MM-DD>
 
 - 监控分类: <categories>
-- Anthropic Research: <enabled/disabled>
 - 候选论文: <n>
 - 新纳入: <n>
 - 重复跳过: <n>
@@ -127,10 +133,23 @@ Use this Markdown header:
 - Base: <link or token>
 ```
 
+```markdown
+## AI 机构研究日报 - <YYYY-MM-DD>
+
+- Anthropic Research: <enabled/disabled>
+- Benchmark sources: <enabled/disabled>
+- 候选条目: <n>
+- 新纳入: <n>
+- 重复跳过: <n>
+- 主题/对标排除: <n>
+- source_errors: <n>
+- Base: <link or token>
+```
+
 When no papers qualify, send:
 
 ```markdown
-## 经济学/社会学研究日报 - <YYYY-MM-DD>
+## <monitor title> - <YYYY-MM-DD>
 
 今日检查了 <n> 个候选条目，未发现符合分类、机构/来源和主题筛选标准的新内容。
 ```

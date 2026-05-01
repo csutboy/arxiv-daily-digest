@@ -312,12 +312,12 @@ def main() -> int:
     fetch.add_argument("--sources", default=",".join(DEFAULT_SOURCES), help="Comma-separated Anthropic Research listing URLs")
     fetch.add_argument("--days", type=float, default=7.0, help="Lookback window in days")
     fetch.add_argument("--keywords", default=",".join(DEFAULT_KEYWORDS), help="Comma-separated relevance keywords")
-    fetch.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/seen.json")
+    fetch.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/institution-seen.json")
     fetch.add_argument("--include-seen", action="store_true", help="Do not filter local seen IDs")
     fetch.set_defaults(func=fetch_candidates)
 
     mark = subparsers.add_parser("mark-seen", help="Mark Anthropic source IDs as seen")
-    mark.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/seen.json")
+    mark.add_argument("--state-file", default="~/.local/state/arxiv-daily-digest/institution-seen.json")
     mark.add_argument("source_ids", nargs="+")
     mark.set_defaults(func=mark_seen)
 

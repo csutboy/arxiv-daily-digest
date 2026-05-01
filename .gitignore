@@ -15,6 +15,7 @@ credentials/
 
 # Local run state
 seen.json
+*-seen.json
 state/
 logs/
 *.log
@@ -23,4 +24,3 @@ logs/
 .DS_Store
 .idea/
 .vscode/
-

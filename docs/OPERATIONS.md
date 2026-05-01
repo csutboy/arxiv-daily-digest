@@ -4,17 +4,34 @@
 
 ## 每日运行流程
 
-每日任务应按以下顺序执行：
+本 skill 有两条每日任务。
+
+### arXiv Monitor - 09:00 北京时间
+
+arXiv Monitor 只处理 arXiv 论文：
 
 1. 读取已确认配置。
 2. 从 arXiv API 抓取过去 48 小时候选论文。
-3. 从 Anthropic Research 官方页面抓取过去 7 天候选文章。
-4. 用 Base 中的 `Source ID` / `去重键` 和本地 `seen.json` 排除重复条目。
-5. 对剩余 arXiv 候选做作者和机构调研；对 Anthropic 候选读取官方文章和相关报告。
-6. 按经济学/社会学领域标准筛选。
-7. 把纳入条目写入飞书 Base，初始状态为 `是否已推送=false`。
+3. 用 Base 中的 `Source ID` / `去重键` 和本地 `arxiv-seen.json` 排除重复条目。
+4. 对候选做作者和机构调研。
+5. 按经济学/社会学领域标准、机构标准和 India exclusion 筛选。
+6. 把纳入条目写入飞书 Base，初始状态为 `监控任务=arXiv Monitor`、`是否已推送=false`。
+7. 生成中文 Markdown 日报并推送到飞书聊天。
+8. 推送成功后更新 Base 状态，并把 arXiv source ID 写入本地 seen state。
+
+### Institution Monitor - 11:00 北京时间
+
+Institution Monitor 只处理机构研究成果：
+
+1. 读取已确认配置。
+2. 从 Anthropic Research 官方页面抓取过去 7 天候选文章。
+3. 从 Anthropic-like benchmark sources 抓取过去 30 天候选。
+4. 用 Base 中的 `Source ID` / `去重键` 和本地 `institution-seen.json` 排除重复条目。
+5. 读取官方文章、报告、paper 或 linked materials。
+6. 按 Anthropic relevance rules 和三维 benchmark 标准筛选。
+7. 把纳入条目写入飞书 Base，初始状态为 `监控任务=Institution Monitor`、`是否已推送=false`。
 8. 生成中文 Markdown 日报并推送到飞书聊天。
-9. 推送成功后更新 Base 状态，并把 source ID 写入本地 seen state。
+9. 推送成功后更新 Base 状态，并把 institution source ID 写入本地 seen state。
 
 只有 Base 写入和飞书推送都成功后，才能标记 seen。
 
@@ -32,6 +49,21 @@ python3 scripts/arxiv_candidates.py fetch \
 ```bash
 python3 scripts/anthropic_candidates.py fetch \
   --days 7
+```
+
+抓取 benchmark source 候选：
+
+```bash
+python3 scripts/benchmark_candidates.py fetch \
+  --days 30
+```
+
+抓取 Institution Monitor 聚合候选：
+
+```bash
+python3 scripts/institution_candidates.py fetch \
+  --anthropic-days 7 \
+  --benchmark-days 30
 ```
 
 包含本地已 seen 的论文：
@@ -52,32 +84,42 @@ python3 scripts/anthropic_candidates.py fetch \
   --include-seen
 ```
 
+包含本地已 seen 的 benchmark 条目：
+
+```bash
+python3 scripts/benchmark_candidates.py fetch \
+  --days 365 \
+  --include-seen
+```
+
 ## 本地去重状态
 
 默认状态文件：
 
 ```text
-~/.local/state/arxiv-daily-digest/seen.json
+~/.local/state/arxiv-daily-digest/arxiv-seen.json
+~/.local/state/arxiv-daily-digest/institution-seen.json
 ```
 
 手动标记已推送：
 
 ```bash
 python3 scripts/arxiv_candidates.py mark-seen 2604.28186 2604.27258
-python3 scripts/anthropic_candidates.py mark-seen anthropic:81k-economics
+python3 scripts/institution_candidates.py mark-seen anthropic:81k-economics benchmark:openai-com-signals
 ```
 
-如果误标记，可以编辑 `seen.json` 删除对应 source ID。删除后，下次运行仍会被 Base 去重挡住；只有 Base 和本地状态都没有该 ID 时才会重新进入候选。
+如果误标记，可以编辑对应 seen 文件删除 source ID。删除后，下次运行仍会被 Base 去重挡住；只有 Base 和本地状态都没有该 ID 时才会重新进入候选。
 
 ## Codex 定时任务
 
-在 Codex 中，使用 `references/automation-prompt.md` 填好配置后创建 cron automation。每日任务 prompt 必须自包含，不要依赖当前聊天上下文。
+在 Codex 中，使用 `references/automation-prompt.md` 里的两个模板创建两条 cron automation。每日任务 prompt 必须自包含，不要依赖当前聊天上下文。
 
 必须写入 prompt 的配置：
 
-- 分类列表
-- 是否启用 Anthropic Research 监测和来源 URL
-- 推送时间和时区
+- monitor 名称：`arXiv Monitor` 或 `Institution Monitor`
+- 推送时间和时区：09:00 / 11:00 Asia/Shanghai
+- arXiv Monitor: 分类列表、cross-list、India exclusion、`arxiv-seen.json`
+- Institution Monitor: Anthropic Research 来源、benchmark 来源、include_scores、`institution-seen.json`
 - 飞书聊天目标
 - Base token / URL
 - table ID / name
@@ -94,13 +136,15 @@ python3 scripts/anthropic_candidates.py mark-seen anthropic:81k-economics
 macOS `launchd`：
 
 ```text
-每天固定时间调用对应代理的非交互命令，并传入 references/automation-prompt.md 填充后的完整 prompt。
+09:00 调用 arXiv Monitor prompt。
+11:00 调用 Institution Monitor prompt。
 ```
 
 Linux `cron`：
 
 ```cron
 0 9 * * * <agent-command> "<filled automation prompt>"
+0 11 * * * <agent-command> "<filled institution automation prompt>"
 ```
 
 具体命令取决于你使用的代理 CLI。
@@ -124,7 +168,7 @@ Base 写不进去：
 重复推送：
 
 - 检查 Base 是否有 `Source ID` 和 `去重键` 字段。
-- 检查本地 `seen.json` 是否可写。
+- 检查本地 `arxiv-seen.json` 或 `institution-seen.json` 是否可写。
 - 检查任务是否在推送失败时错误标记了 seen。
 
 候选过少：
@@ -133,6 +177,7 @@ Base 写不进去：
 - 加入 cross-list 常见分类，如 `cs.SI`、`cs.CY`、`physics.soc-ph`、`stat.AP`。
 - 确认 arXiv API 可访问。
 - 确认 Anthropic Research 页面可访问。
+- 确认 benchmark source 官方页面可访问；部分官网可能返回 403 或 TLS 错误，脚本会记录到 `source_errors` 并继续处理其他来源。
 
 候选过多：
 
@@ -146,6 +191,8 @@ Base 写不进去：
 python3 /Users/shuai/.codex/skills/.system/skill-creator/scripts/quick_validate.py .
 python3 scripts/arxiv_candidates.py fetch --categories econ.EM,econ.GN,econ.TH --days 7 --max-results 5 --include-seen
 python3 scripts/anthropic_candidates.py fetch --days 365 --include-seen
+python3 scripts/benchmark_candidates.py fetch --days 365 --include-seen
+python3 scripts/institution_candidates.py fetch --anthropic-days 7 --benchmark-days 30 --include-seen
 python3 scripts/install_portable.py --dry-run
 ```
 
