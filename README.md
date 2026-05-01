@@ -1,6 +1,6 @@
-# arXiv Daily Digest Skill
+# arXiv + Anthropic Daily Digest Skill
 
-一个面向经济学、社会学和计算社会科学的跨平台代理 skill。它会帮助代理每天从 arXiv 抓取候选论文，按分类、作者背景和机构质量筛选，生成中文 Markdown 学术摘要，写入飞书多维表格，并推送到飞书聊天。
+一个面向经济学、社会学、计算社会科学和 AI 社会/经济影响研究的跨平台代理 skill。它会帮助代理每天从 arXiv 和 Anthropic Research 官方页面抓取候选内容，按分类、作者背景、机构质量和主题相关性筛选，生成中文 Markdown 学术摘要，写入飞书多维表格，并推送到飞书聊天。
 
 当前支持作为 skill 安装到：
 
@@ -13,12 +13,13 @@
 
 - 按 arXiv 分类筛选经济学和社会学相关论文。
 - 支持 cross-list 论文，例如主分类不是 `econ.*`，但 cross-list 到 `econ.TH` 时仍可纳入候选。
+- 固定监测 Anthropic Research、Economic Research、Societal Impacts 官方页面，纳入 AI 经济学、AI 社会学、劳动市场、生产率、AI 使用和社会影响研究。
 - 对作者和机构做网页调研，只纳入国际一流或同等级强机构的论文。
 - 默认严格排除印度本地大学和研究机构论文。
 - 生成中文 Markdown 摘要，包含题目、发表时间、作者背景、研究问题、方法/数据、研究发现、价值意义和纳入理由。
 - 写入飞书 Base，长期记录每篇论文的筛选状态、摘要、来源和推送状态。
 - 推送到飞书聊天。
-- 通过 arXiv ID + Feishu Base + 本地状态文件三重约束避免重复推送。
+- 通过稳定 source ID + Feishu Base + 本地状态文件三重约束避免重复推送。
 
 ## 目录结构
 
@@ -38,6 +39,7 @@ arxiv-daily-digest/
 │   ├── feishu-workflow.md
 │   └── platforms.md
 └── scripts/
+    ├── anthropic_candidates.py
     ├── arxiv_candidates.py
     └── install_portable.py
 ```
@@ -68,6 +70,7 @@ python3 scripts/install_portable.py
 - `python3`
 - `lark-cli`
 - 能访问 arXiv API 和网页搜索
+- 能访问 Anthropic 官方研究页面
 - 已配置好的飞书应用权限
 - 可用的飞书聊天目标
 - 可写入的飞书多维表格
@@ -91,6 +94,7 @@ Use $arxiv-daily-digest to configure a Beijing-time Feishu push for economics an
 配置阶段会询问：
 
 - 要监控的 arXiv 分类
+- 是否启用 Anthropic Research 官方来源监测，默认启用
 - 北京时间每日推送时间
 - 飞书聊天目标
 - 飞书 Base 目标
@@ -118,9 +122,17 @@ Use $arxiv-daily-digest to configure a Beijing-time Feishu push for economics an
 
 完整筛选规则见 [references/domain-scope.md](references/domain-scope.md)。
 
+Anthropic Research 默认来源：
+
+- `https://www.anthropic.com/research`
+- `https://www.anthropic.com/research/team/economic-research`
+- `https://www.anthropic.com/research/team/societal-impacts`
+
+完整筛选规则见 [references/anthropic-research.md](references/anthropic-research.md)。
+
 ## 候选抓取脚本
 
-可以单独测试 arXiv 抓取：
+测试 arXiv 抓取：
 
 ```bash
 python3 scripts/arxiv_candidates.py fetch \
@@ -129,10 +141,18 @@ python3 scripts/arxiv_candidates.py fetch \
   --max-results 50
 ```
 
-标记本地已推送论文：
+测试 Anthropic Research 抓取：
+
+```bash
+python3 scripts/anthropic_candidates.py fetch \
+  --days 7
+```
+
+标记本地已推送条目：
 
 ```bash
 python3 scripts/arxiv_candidates.py mark-seen 2604.28186
+python3 scripts/anthropic_candidates.py mark-seen anthropic:81k-economics
 ```
 
 默认本地状态文件：
@@ -146,9 +166,10 @@ python3 scripts/arxiv_candidates.py mark-seen 2604.28186
 推送消息是中文 Markdown，顶部包含运行统计：
 
 ```markdown
-## arXiv 经济学/社会学日报 - 2026-05-01
+## 经济学/社会学研究日报 - 2026-05-01
 
 - 监控分类: econ.EM, econ.GN, econ.TH
+- Anthropic Research: enabled
 - 候选论文: 42
 - 新纳入: 5
 - 重复跳过: 3
@@ -158,6 +179,7 @@ python3 scripts/arxiv_candidates.py mark-seen 2604.28186
 每篇论文包含：
 
 - 题目和 arXiv 链接
+- Anthropic 官方文章链接
 - 发布时间
 - 作者与机构背景
 - 研究问题
@@ -172,7 +194,7 @@ python3 scripts/arxiv_candidates.py mark-seen 2604.28186
 - 不提交飞书 token、app secret、GitHub token 或任何访问凭证。
 - 不把用户的实际 Base token/chat_id 写进仓库。
 - 推送前必须确认飞书目标和消息内容。
-- 只有 Base 写入和飞书推送都成功后，才把 arXiv ID 标记为已推送。
+- 只有 Base 写入和飞书推送都成功后，才把 source ID 标记为已推送。
 
 ## 文档
 
@@ -180,4 +202,3 @@ python3 scripts/arxiv_candidates.py mark-seen 2604.28186
 - [docs/OPERATIONS.md](docs/OPERATIONS.md): 每日运行、排错、去重和跨平台代理注意事项。
 - [references/automation-prompt.md](references/automation-prompt.md): 定时任务 prompt 模板。
 - [references/feishu-workflow.md](references/feishu-workflow.md): agent 执行飞书操作时使用的低层流程。
-

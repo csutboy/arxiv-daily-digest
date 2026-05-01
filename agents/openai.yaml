@@ -1,4 +1,4 @@
 interface:
-  display_name: "arXiv Daily Digest"
-  short_description: "每日筛选经济学和社会学 arXiv 论文并推送飞书"
-  default_prompt: "Use $arxiv-daily-digest to configure a Beijing-time Feishu push for economics and sociology arXiv papers."
+  display_name: "arXiv + Anthropic Digest"
+  short_description: "每日筛选 arXiv 与 Anthropic 经济社会研究"
+  default_prompt: "Use $arxiv-daily-digest to configure a Beijing-time Feishu push for economics and sociology research from arXiv and Anthropic."

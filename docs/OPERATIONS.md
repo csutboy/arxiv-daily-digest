@@ -8,14 +8,15 @@
 
 1. 读取已确认配置。
 2. 从 arXiv API 抓取过去 48 小时候选论文。
-3. 用 Base 中的 `arXiv ID` 和本地 `seen.json` 排除重复论文。
-4. 对剩余候选做作者和机构调研。
-5. 按经济学/社会学领域标准筛选。
-6. 把纳入论文写入飞书 Base，初始状态为 `是否已推送=false`。
-7. 生成中文 Markdown 日报并推送到飞书聊天。
-8. 推送成功后更新 Base 状态，并把 arXiv ID 写入本地 seen state。
+3. 从 Anthropic Research 官方页面抓取过去 7 天候选文章。
+4. 用 Base 中的 `Source ID` / `去重键` 和本地 `seen.json` 排除重复条目。
+5. 对剩余 arXiv 候选做作者和机构调研；对 Anthropic 候选读取官方文章和相关报告。
+6. 按经济学/社会学领域标准筛选。
+7. 把纳入条目写入飞书 Base，初始状态为 `是否已推送=false`。
+8. 生成中文 Markdown 日报并推送到飞书聊天。
+9. 推送成功后更新 Base 状态，并把 source ID 写入本地 seen state。
 
-只有第 6 步和第 7 步都成功后，才能执行第 8 步。
+只有 Base 写入和飞书推送都成功后，才能标记 seen。
 
 ## 手动抓取候选
 
@@ -26,6 +27,13 @@ python3 scripts/arxiv_candidates.py fetch \
   --max-results 100
 ```
 
+抓取 Anthropic Research 候选：
+
+```bash
+python3 scripts/anthropic_candidates.py fetch \
+  --days 7
+```
+
 包含本地已 seen 的论文：
 
 ```bash
@@ -33,6 +41,14 @@ python3 scripts/arxiv_candidates.py fetch \
   --categories econ.TH \
   --days 7 \
   --max-results 20 \
+  --include-seen
+```
+
+包含本地已 seen 的 Anthropic 条目：
+
+```bash
+python3 scripts/anthropic_candidates.py fetch \
+  --days 30 \
   --include-seen
 ```
 
@@ -48,9 +64,10 @@ python3 scripts/arxiv_candidates.py fetch \
 
 ```bash
 python3 scripts/arxiv_candidates.py mark-seen 2604.28186 2604.27258
+python3 scripts/anthropic_candidates.py mark-seen anthropic:81k-economics
 ```
 
-如果误标记，可以编辑 `seen.json` 删除对应 arXiv ID。删除后，下次运行仍会被 Base 去重挡住；只有 Base 和本地状态都没有该 ID 时才会重新进入候选。
+如果误标记，可以编辑 `seen.json` 删除对应 source ID。删除后，下次运行仍会被 Base 去重挡住；只有 Base 和本地状态都没有该 ID 时才会重新进入候选。
 
 ## Codex 定时任务
 
@@ -59,6 +76,7 @@ python3 scripts/arxiv_candidates.py mark-seen 2604.28186 2604.27258
 必须写入 prompt 的配置：
 
 - 分类列表
+- 是否启用 Anthropic Research 监测和来源 URL
 - 推送时间和时区
 - 飞书聊天目标
 - Base token / URL
@@ -105,7 +123,7 @@ Base 写不进去：
 
 重复推送：
 
-- 检查 Base 是否有 `arXiv ID` 字段。
+- 检查 Base 是否有 `Source ID` 和 `去重键` 字段。
 - 检查本地 `seen.json` 是否可写。
 - 检查任务是否在推送失败时错误标记了 seen。
 
@@ -114,6 +132,7 @@ Base 写不进去：
 - 增加 lookback 到 72 小时。
 - 加入 cross-list 常见分类，如 `cs.SI`、`cs.CY`、`physics.soc-ph`、`stat.AP`。
 - 确认 arXiv API 可访问。
+- 确认 Anthropic Research 页面可访问。
 
 候选过多：
 
@@ -126,6 +145,7 @@ Base 写不进去：
 ```bash
 python3 /Users/shuai/.codex/skills/.system/skill-creator/scripts/quick_validate.py .
 python3 scripts/arxiv_candidates.py fetch --categories econ.EM,econ.GN,econ.TH --days 7 --max-results 5 --include-seen
+python3 scripts/anthropic_candidates.py fetch --days 365 --include-seen
 python3 scripts/install_portable.py --dry-run
 ```
 
@@ -137,4 +157,3 @@ python3 scripts/install_portable.py --dry-run
 - 实际 Base token
 - 实际 chat_id/user_id 配置文件
 - 本地 seen state
-
